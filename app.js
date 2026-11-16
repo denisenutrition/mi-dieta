@@ -353,11 +353,12 @@
   // --- inicio ---------------------------------------------------------------------
   var codigo = Logica.codigoDeEnlace(location.hash);
   if (codigo) {
-    // Viene del enlace personal: se guarda el código y se quita de la barra de direcciones.
+    // Viene del enlace personal: se guarda el código. Se DEJA en la dirección a propósito: en el
+    // iPhone, «Añadir a pantalla de inicio» guarda la dirección que hay en ese momento, y la app
+    // instalada no comparte lo guardado por Safari; con el código en la dirección, se las apaña sola.
     var anterior = leer('acceso', null);
     if (anterior && anterior.codigo !== codigo) { try { localStorage.removeItem(CLAVE); } catch (e) {} }
-    guardar('acceso', { codigo: codigo, desde: new Date().toISOString() });
-    history.replaceState(null, '', location.pathname);
+    if (!anterior || anterior.codigo !== codigo) guardar('acceso', { codigo: codigo, desde: new Date().toISOString() });
   }
   vista = PINTAR[location.hash.slice(1)] ? location.hash.slice(1) : leer('vista', 'hoy');
   if (!PINTAR[vista]) vista = 'hoy';
