@@ -96,7 +96,11 @@ var Logica = (function () {
    * alternativas), sumados por unidad y agrupados por sección del súper.
    * → [{ seccion, items: [{ id, nombre, cantidad }] }]
    */
+  /** Dieta «por opciones»: sin días, cada comida con varias opciones (las de semana[0]). */
+  function porOpciones(j) { return !!j && j.modo === 'opciones'; }
+
   function compra(j) {
+    if (porOpciones(j)) return compraOpciones(j);
     var por = {};
     j.semana.forEach(function (d, dia) {
       j.comidas.forEach(function (c) {
@@ -125,6 +129,31 @@ var Logica = (function () {
       var cant = partes.length ? partes.join(' + ') : 'para ' + a.veces + (a.veces === 1 ? ' comida' : ' comidas');
       var s = al.s || 'Otros';
       (secciones[s] = secciones[s] || []).push({ id: id, nombre: al.n, cantidad: cant, opcional: a.soloOpcional });
+    });
+    var orden = SECCIONES.slice();
+    Object.keys(secciones).sort().forEach(function (s) { if (orden.indexOf(s) === -1) orden.push(s); });
+    return orden.filter(function (s) { return secciones[s]; }).map(function (s) {
+      return { seccion: s, items: secciones[s].sort(function (a, b) { return a.nombre.localeCompare(b.nombre, 'es'); }) };
+    });
+  }
+
+  /** Por opciones: todo lo que usan sus opciones, sin cantidades (depende de lo que elija cada día). */
+  function compraOpciones(j) {
+    var por = {};
+    j.comidas.forEach(function (c) {
+      var e = j.semana[0][c.id];
+      if (!e || e === 'LIBRE') return;
+      e.forEach(function (pid) {
+        (j.platos[pid] ? j.platos[pid].i : []).forEach(function (x) {
+          var a = por[x[0]] || (por[x[0]] = { id: x[0], soloOpcional: true });
+          if (!c.o) a.soloOpcional = false;
+        });
+      });
+    });
+    var secciones = {};
+    Object.keys(por).forEach(function (id) {
+      var al = j.alimentos[id] || { n: id, s: 'Otros' }, s = al.s || 'Otros';
+      (secciones[s] = secciones[s] || []).push({ id: id, nombre: al.n, cantidad: '', opcional: por[id].soloOpcional });
     });
     var orden = SECCIONES.slice();
     Object.keys(secciones).sort().forEach(function (s) { if (orden.indexOf(s) === -1) orden.push(s); });
@@ -173,7 +202,7 @@ var Logica = (function () {
   return {
     FORMATO: FORMATO, codigoDeEnlace: codigoDeEnlace, urlPortal: urlPortal, decidir: decidir, DIAS: DIAS, LETRAS: LETRAS, MESES: MESES,
     numero: numero, cantidad: cantidad, problema: problema, lunesDe: lunesDe, diaDeLaSemana: diaDeLaSemana,
-    fechaCorta: fechaCorta, comidasDelDia: comidasDelDia, semana: semana, compra: compra,
+    fechaCorta: fechaCorta, porOpciones: porOpciones, comidasDelDia: comidasDelDia, semana: semana, compra: compra,
     recomendaciones: recomendaciones, nutricionDelDia: nutricionDelDia
   };
 })();

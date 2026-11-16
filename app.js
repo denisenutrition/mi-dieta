@@ -98,10 +98,12 @@
   function pintarCabecera() {
     $('hola').textContent = 'Hola, ' + j.clienta.nombre;
     $('chip-dieta').textContent = 'Dieta v' + j.version + ' · desde ' + Logica.fechaCorta(j.desde);
-    var sub = { hoy: 'Tu día, comida a comida. Desliza para ver alternativas.', semana: 'Tu semana de un vistazo.', compra: 'Lo que necesitas para esta semana.', mas: 'Tus consejos, tu dieta y tu dietista.' };
+    var op = Logica.porOpciones(j);
+    var sub = { hoy: op ? 'Cada día, elige una opción de cada comida. Desliza para verlas.' : 'Tu día, comida a comida. Desliza para ver alternativas.',
+      semana: 'Tu semana de un vistazo.', compra: op ? 'Lo que usan tus opciones, para tener en casa.' : 'Lo que necesitas para esta semana.', mas: 'Tus consejos, tu dieta y tu dietista.' };
     $('subtitulo').textContent = sub[vista];
     var dias = $('dias');
-    dias.hidden = vista !== 'hoy';
+    dias.hidden = vista !== 'hoy' || op;
     poner(dias, Logica.LETRAS.map(function (l, i) {
       return el('button', { type: 'button', role: 'tab', 'aria-selected': String(i === diaSel), class: 'dia' + (i === diaSel ? ' activo' : '') + (i === hoyIdx ? ' hoy' : ''),
         'aria-label': Logica.DIAS[i] + (i === hoyIdx ? ' (hoy)' : ''), onclick: function () { diaSel = i; pintar(); } },
@@ -138,7 +140,7 @@
     }
     var ops = c.opciones.map(function (p, k) {
       return el('div', { class: 'opcion' },
-        k ? el('span', { class: 'etiqueta-alt' }, 'Alternativa ' + k) : null,
+        k && !Logica.porOpciones(j) ? el('span', { class: 'etiqueta-alt' }, 'Alternativa ' + k) : null,
         el('h3', null, p.nombre),
         p.nut ? el('p', { class: 'nut' }, nutTexto(p.nut)) : null,
         listaIngredientes(p),
@@ -166,12 +168,12 @@
   }
 
   function pintarHoy() {
-    var f = fechaDe(diaSel);
-    var comidas = Logica.comidasDelDia(j, diaSel);
-    var nut = Logica.nutricionDelDia(j, diaSel);
+    var f = fechaDe(diaSel), op = Logica.porOpciones(j);
+    var comidas = Logica.comidasDelDia(j, op ? 0 : diaSel);
+    var nut = op ? null : Logica.nutricionDelDia(j, diaSel);
     poner($('v-hoy'),
-      el('div', { class: 'titulo-dia' }, el('h2', null, diaSel === hoyIdx ? 'Hoy, ' + Logica.DIAS[diaSel].toLowerCase() : Logica.DIAS[diaSel]),
-        el('span', null, f.getDate() + ' ' + Logica.MESES[f.getMonth()] + (nut ? ' · ' + nut.kcal + ' kcal' : ''))),
+      el('div', { class: 'titulo-dia' }, el('h2', null, op ? 'Tus opciones' : diaSel === hoyIdx ? 'Hoy, ' + Logica.DIAS[diaSel].toLowerCase() : Logica.DIAS[diaSel]),
+        el('span', null, op ? '' : f.getDate() + ' ' + Logica.MESES[f.getMonth()] + (nut ? ' · ' + nut.kcal + ' kcal' : ''))),
       comidas.length ? el('div', { class: 'comidas' }, comidas.map(tarjetaComida)) : el('p', { class: 'vacio' }, 'Este día no tiene comidas en tu plan.'),
       el('p', { class: 'nota-cantidades' }, 'Cantidades ' + j.ajustes.cantidades + ', pesadas ' + j.ajustes.pesos + '.',
         el('br'), 'Toca un ingrediente con ⇄ para ver con qué puedes cambiarlo.'),
@@ -188,7 +190,7 @@
       x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
     }, { passive: true });
     zona.addEventListener('touchend', function (e) {
-      if (x0 == null || enCarril) { x0 = null; return; }
+      if (x0 == null || enCarril || Logica.porOpciones(j)) { x0 = null; return; }
       var dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
       x0 = null;
       if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
@@ -225,7 +227,9 @@
     var hay = Object.keys(hechos).some(function (k) { return hechos[k]; });
     var bReiniciar = el('button', { type: 'button', class: 'btn', disabled: !hay, onclick: function () { confirmar.hidden = false; bReiniciar.hidden = true; } }, 'Reiniciar la lista');
     poner($('v-compra'),
-      el('p', { class: 'intro' }, 'Sale de los platos del día de toda la semana. Si cambias un plato por su alternativa, ajusta a ojo. Toca para tachar; toca el nombre de una sección para plegarla.'),
+      el('p', { class: 'intro' }, Logica.porOpciones(j)
+        ? 'Todo lo que usan tus opciones, para que lo tengas en casa. Las cantidades dependen de lo que elijas cada día. Toca para tachar.'
+        : 'Sale de los platos del día de toda la semana. Si cambias un plato por su alternativa, ajusta a ojo. Toca para tachar; toca el nombre de una sección para plegarla.'),
       secciones.map(function (s) {
         var cuenta = el('span', { class: 'cuenta' });
         function contar() { cuenta.textContent = s.items.filter(function (it) { return hechos[it.id]; }).length + ' de ' + s.items.length; }
@@ -286,6 +290,12 @@
   var PINTAR = { hoy: pintarHoy, semana: pintarSemana, compra: pintarCompra, mas: pintarMas };
   function pintar() {
     if (!j) return;
+    // Por opciones no hay semana: la pestaña se oculta (y si estaba en ella, a Hoy).
+    var op = Logica.porOpciones(j);
+    if (op && vista === 'semana') vista = 'hoy';
+    var bSemana = document.querySelector('nav.pestanas button[data-v="semana"]');
+    bSemana.hidden = op;
+    document.querySelector('nav.pestanas .fila').style.gridTemplateColumns = 'repeat(' + (op ? 3 : 4) + ', 1fr)';
     pintarCabecera();
     ['hoy', 'semana', 'compra', 'mas'].forEach(function (k) { $('v-' + k).hidden = k !== vista; });
     document.querySelectorAll('nav.pestanas button').forEach(function (b) { b.classList.toggle('on', b.dataset.v === vista); });
@@ -294,7 +304,7 @@
   function cambiar(v) { vista = v; guardar('vista', v); pintar(); window.scrollTo(0, 0); }
   document.querySelectorAll('nav.pestanas button').forEach(function (b) { b.addEventListener('click', function () { cambiar(b.dataset.v); }); });
   document.addEventListener('keydown', function (e) {
-    if (!j || vista !== 'hoy' || e.target.closest('input')) return;
+    if (!j || vista !== 'hoy' || Logica.porOpciones(j) || e.target.closest('input')) return;
     if (e.key === 'ArrowRight') { diaSel = (diaSel + 1) % 7; pintar(); }
     if (e.key === 'ArrowLeft') { diaSel = (diaSel + 6) % 7; pintar(); }
   });
@@ -385,7 +395,8 @@
     else bienvenida('', CONFIG.portal ? 'Buscando tu dieta…' : 'La app aún no está conectada con tu dietista.');
     comprobar(false);
   } else if (CONFIG.pruebas && /[?&]ejemplo\b/.test(location.search)) {
-    fetch('ejemplo/dieta.json', { cache: 'no-store' }).then(function (r) { return r.json(); })
+    // ?ejemplo → por días · ?ejemplo=opciones → por opciones
+    fetch(/[?&]ejemplo=opciones\b/.test(location.search) ? 'ejemplo/dieta-opciones.json' : 'ejemplo/dieta.json', { cache: 'no-store' }).then(function (r) { return r.json(); })
       .then(function (d) { if (usar(d, 'ejemplo')) pintar(); history.replaceState(null, '', location.pathname + location.hash); })
       .catch(function () { bienvenida('No se ha podido cargar la dieta de ejemplo.'); });
   } else if (guardada && !Logica.problema(guardada.dieta)) {
