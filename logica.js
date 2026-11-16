@@ -168,6 +168,41 @@ var Logica = (function () {
     return r.filter(function (x) { return x.pg; }).concat(r.filter(function (x) { return !x.pg; }));
   }
 
+  // --- Mi consulta: imprescindibles, consejo del día y presentación de una dieta nueva ------
+
+  /** Lo marcado ★ por Denise (recomendaciones y tablas, sin las páginas fijas). */
+  function imprescindibles(j) {
+    return (j.recomendaciones || []).filter(function (r) { return r.imp && !r.pg; })
+      .concat((j.tablas || []).filter(function (t) { return t.imp; }));
+  }
+
+  /** Frases sueltas para el consejo del día: primero las de las imprescindibles, luego el resto. */
+  function consejos(j) {
+    var recs = (j.recomendaciones || []).filter(function (r) { return !r.pg; });
+    var orden = recs.filter(function (r) { return r.imp; }).concat(recs.filter(function (r) { return !r.imp; }));
+    var out = [];
+    orden.forEach(function (r) { (r.l || []).forEach(function (l) { if (texto(l)) out.push({ titulo: r.t, texto: texto(l) }); }); });
+    return out;
+  }
+
+  /** El consejo de un día: va rotando, uno distinto cada día (el mismo durante todo el día). */
+  function consejoDelDia(j, fecha) {
+    var c = consejos(j);
+    if (!c.length) return null;
+    var dia = Math.floor(Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()) / 86400000);
+    return c[dia % c.length];
+  }
+
+  /** Pantallas de «Lo importante de tu plan» al llegar una dieta nueva: la nota y las imprescindibles. */
+  function presentacion(j) {
+    var out = [];
+    if (texto(j.nota)) out.push({ titulo: 'Nota de tu dietista', nota: true, lineas: String(j.nota).split(/\n+/).map(texto).filter(Boolean) });
+    imprescindibles(j).forEach(function (r) {
+      out.push({ titulo: r.t, lineas: r.l ? r.l.slice() : (r.p || []).map(function (x) { return x[0] + (x[1] ? ' · ' + x[1] : ''); }) });
+    });
+    return out;
+  }
+
   /** Total del día, si Denise ha decidido enseñarlo (mostrarNutricion). */
   function nutricionDelDia(j, dia) {
     if (!j.ajustes || !j.ajustes.mostrarNutricion || !j.nutricion || !j.nutricion.dias) return null;
@@ -202,7 +237,8 @@ var Logica = (function () {
   return {
     FORMATO: FORMATO, codigoDeEnlace: codigoDeEnlace, urlPortal: urlPortal, decidir: decidir, DIAS: DIAS, LETRAS: LETRAS, MESES: MESES,
     numero: numero, cantidad: cantidad, problema: problema, lunesDe: lunesDe, diaDeLaSemana: diaDeLaSemana,
-    fechaCorta: fechaCorta, porOpciones: porOpciones, comidasDelDia: comidasDelDia, semana: semana, compra: compra,
+    fechaCorta: fechaCorta, porOpciones: porOpciones, imprescindibles: imprescindibles, consejos: consejos,
+    consejoDelDia: consejoDelDia, presentacion: presentacion, comidasDelDia: comidasDelDia, semana: semana, compra: compra,
     recomendaciones: recomendaciones, nutricionDelDia: nutricionDelDia
   };
 })();

@@ -181,6 +181,39 @@ details.bloque ul { margin: 0; padding: 0 14px 14px 32px; display: grid; gap: 6p
 .pegar label { font-size: .85rem; color: var(--muted); }
 .pegar input { font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); min-width: 0; }
 
+/* --- Consejo del día (Hoy): una línea discreta --- */
+.consejo { display: flex; align-items: center; gap: 4px; background: var(--accent-soft); border-radius: 12px; margin: 0 0 12px; padding: 2px 4px 2px 0; }
+.consejo-txt { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; border: 0; background: none; text-align: left; padding: 8px 4px 8px 10px; cursor: pointer; font-size: .85rem; }
+.consejo-txt span:last-child { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.consejo .ico { flex: none; }
+.consejo .cerrar { border: 0; background: none; color: var(--muted); font-size: 1.2rem; line-height: 1; padding: 6px 8px; cursor: pointer; flex: none; }
+
+/* --- Mi consulta: nota e imprescindibles --- */
+.nota-dt { background: var(--accent-soft); border-color: transparent; }
+.nota-dt p { margin: 0 0 4px; font-size: .95rem; }
+details.bloque.imp { border-color: var(--accent); }
+details.bloque.imp summary::before { content: "★ "; color: var(--accent); }
+
+/* --- Punto de «nuevo» en la pestaña --- */
+nav.pestanas button { position: relative; }
+nav.pestanas button.nuevo::after { content: ""; position: absolute; top: 8px; left: calc(50% + 10px); width: 8px; height: 8px; border-radius: 50%; background: #d64545; }
+
+/* --- «Lo importante de tu plan» (una vez por dieta) --- */
+.presentacion { position: fixed; inset: 0; z-index: 30; background: var(--bg); display: flex; flex-direction: column;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.pres-cab { display: flex; justify-content: space-between; align-items: center; max-width: 460px; width: 100%; margin: 0 auto; font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; color: var(--accent); }
+.pres-saltar { border: 0; background: none; color: var(--muted); text-transform: none; letter-spacing: 0; font-weight: 500; cursor: pointer; padding: 6px 0; }
+.pres-carril { flex: 1; display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; max-width: 460px; width: 100%; margin: 0 auto; }
+.pres-carril::-webkit-scrollbar { display: none; }
+.pres-pantalla { flex: 0 0 100%; scroll-snap-align: start; display: flex; flex-direction: column; justify-content: center; padding: 16px 4px; min-width: 0; }
+.pres-pantalla h2 { font-family: var(--display); font-size: 1.6rem; margin: 0 0 14px; text-wrap: balance; }
+.pres-pantalla p { margin: 0 0 10px; font-size: 1.05rem; }
+.pres-pantalla ul { margin: 0; padding-left: 20px; display: grid; gap: 10px; font-size: 1.02rem; }
+.pres-pie { display: flex; justify-content: space-between; align-items: center; max-width: 460px; width: 100%; margin: 0 auto; }
+.pres-pie .puntos i { width: 7px; height: 7px; border-radius: 50%; background: var(--dot); display: block; }
+.pres-pie .puntos i.on { background: var(--accent); }
+.pres-pie .puntos { gap: 6px; margin: 0; }
+
 /* --- Pestañas --- */
 nav.pestanas { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--surface); border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }

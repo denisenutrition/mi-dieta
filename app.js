@@ -172,6 +172,7 @@
     var comidas = Logica.comidasDelDia(j, op ? 0 : diaSel);
     var nut = op ? null : Logica.nutricionDelDia(j, diaSel);
     poner($('v-hoy'),
+      tarjetaConsejo(),
       el('div', { class: 'titulo-dia' }, el('h2', null, op ? 'Tus opciones' : diaSel === hoyIdx ? 'Hoy, ' + Logica.DIAS[diaSel].toLowerCase() : Logica.DIAS[diaSel]),
         el('span', null, op ? '' : f.getDate() + ' ' + Logica.MESES[f.getMonth()] + (nut ? ' · ' + nut.kcal + ' kcal' : ''))),
       comidas.length ? el('div', { class: 'comidas' }, comidas.map(tarjetaComida)) : el('p', { class: 'vacio' }, 'Este día no tiene comidas en tu plan.'),
@@ -179,6 +180,22 @@
         el('br'), 'Toca un ingrediente con ⇄ para ver con qué puedes cambiarlo.'),
       el('button', { type: 'button', class: 'ir-mas', onclick: function () { cambiar('mas'); } },
         'Cómo leer las cantidades y tus recomendaciones'));
+  }
+
+  function hoyTexto() { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+
+  /**
+   * Consejo del día: una línea, arriba de Hoy. Rota cada día (primero lo imprescindible). Se puede
+   * ocultar hasta mañana (×). No sale el día en que se ha enseñado «Lo importante de tu plan».
+   */
+  function tarjetaConsejo() {
+    var c = Logica.consejoDelDia(j, new Date());
+    if (!c || leer('consejo-oculto', '') === hoyTexto() || leer('presentada', {}).dia === hoyTexto()) return null;
+    var t = el('div', { class: 'consejo' },
+      el('button', { type: 'button', class: 'consejo-txt', onclick: function () { cambiar('mas'); } },
+        el('span', { class: 'ico', 'aria-hidden': 'true' }, '💡'), el('span', null, c.texto)),
+      el('button', { type: 'button', class: 'cerrar', 'aria-label': 'Ocultar el consejo de hoy', onclick: function () { guardar('consejo-oculto', hoyTexto()); t.remove(); } }, '×'));
+    return t;
   }
 
   // Deslizar el día entero (fuera de las tarjetas con alternativas).
@@ -260,11 +277,20 @@
     return el('details', { class: 'bloque', open: abierto }, el('summary', null, r.t), el('ul', null, r.l.map(function (t) { return el('li', null, t); })));
   }
 
+  function bloqueImprescindible(r) {
+    return el('details', { class: 'bloque imp', open: true }, el('summary', null, r.t), el('ul', null, r.l.map(function (t) { return el('li', null, t); })));
+  }
+
   function pintarMas() {
     var recs = Logica.recomendaciones(j);
-    var paginas = recs.filter(function (r) { return r.pg; }), otras = recs.filter(function (r) { return !r.pg; });
+    var paginas = recs.filter(function (r) { return r.pg; }), otras = recs.filter(function (r) { return !r.pg && !r.imp; });
+    var imps = Logica.imprescindibles(j), tablas = (j.tablas || []).filter(function (t) { return !t.imp; });
+    function bloqueTabla(t, abierto) {
+      return el('details', { class: 'bloque' + (t.imp ? ' imp' : ''), open: abierto }, el('summary', null, t.t),
+        el('div', { class: 'porciones' }, t.p.map(function (x) { return el('div', null, x[0], x[1] ? el('small', null, x[1]) : null); })));
+    }
     var obj = j.nutricion && j.ajustes.mostrarNutricion ? j.nutricion.objetivo : null;
-    // Orden: (nota de tu dietista e imprescindibles, paso 4) → recomendaciones → tablas → tu dieta → cómo trabajamos.
+    // Orden: nota de tu dietista → imprescindibles → recomendaciones → tablas → tu dieta → cómo trabajamos.
     var tuDieta = el('div', { class: 'tarjeta' }, el('h3', null, 'Versión ' + j.version),
         el('p', null, 'Desde el ' + Logica.fechaCorta(j.desde) + '.'),
         el('div', { class: 'ajustes' },
@@ -276,11 +302,11 @@
           el('span', { id: 'comprobacion' }, textoComprobada()),
           el('button', { type: 'button', class: 'btn', onclick: function () { comprobar(true); } }, 'Buscar cambios')) : null);
     poner($('v-mas'),
-      otras.length ? [el('div', { class: 'grupo-mas' }, 'Recomendaciones'), otras.map(function (r, i) { return bloqueRecomendacion(r, i === 0); })] : null,
-      (j.tablas || []).length ? [el('div', { class: 'grupo-mas' }, 'Tablas'), j.tablas.map(function (t) {
-        return el('details', { class: 'bloque' }, el('summary', null, t.t),
-          el('div', { class: 'porciones' }, t.p.map(function (x) { return el('div', null, x[0], x[1] ? el('small', null, x[1]) : null); })));
-      })] : null,
+      j.nota ? el('div', { class: 'tarjeta nota-dt' }, el('h3', null, 'Nota de tu dietista'),
+        String(j.nota).split(/\n+/).map(function (l) { return el('p', null, l); })) : null,
+      imps.length ? [el('div', { class: 'grupo-mas' }, '★ Imprescindible'), imps.map(function (r) { return r.p ? bloqueTabla(r, true) : bloqueImprescindible(r); })] : null,
+      otras.length ? [el('div', { class: 'grupo-mas' }, 'Recomendaciones'), otras.map(function (r, i) { return bloqueRecomendacion(r, i === 0 && !imps.length); })] : null,
+      tablas.length ? [el('div', { class: 'grupo-mas' }, 'Tablas'), tablas.map(function (t) { return bloqueTabla(t, false); })] : null,
       el('div', { class: 'grupo-mas' }, 'Tu dieta'), tuDieta,
       paginas.length ? [el('div', { class: 'grupo-mas' }, 'Cómo trabajamos'), paginas.map(function (r) { return bloqueRecomendacion(r, false); })] : null,
       CONFIG.pruebas ? el('div', { class: 'pruebas' }, el('button', { type: 'button', 'data-abrir-fichero': true }, 'Cargar otra dieta desde un fichero · para pruebas')) : null);
@@ -299,6 +325,11 @@
     pintarCabecera();
     ['hoy', 'semana', 'compra', 'mas'].forEach(function (k) { $('v-' + k).hidden = k !== vista; });
     document.querySelectorAll('nav.pestanas button').forEach(function (b) { b.classList.toggle('on', b.dataset.v === vista); });
+    // Punto de «nuevo» en Mi consulta hasta que entre (una vez por dieta).
+    var kVista = claveDieta('consulta-vista');
+    if (vista === 'mas') guardar('consulta-vista', kVista);
+    var hayAlgo = !!(j.nota || (j.recomendaciones || []).length || (j.tablas || []).length);
+    document.querySelector('nav.pestanas button[data-v="mas"]').classList.toggle('nuevo', hayAlgo && leer('consulta-vista', '') !== kVista);
     PINTAR[vista]();
   }
   function cambiar(v) { vista = v; guardar('vista', v); pintar(); window.scrollTo(0, 0); }
@@ -315,6 +346,48 @@
     var aviso = $('aviso');
     aviso.hidden = !/^X-/.test(j.clienta.id);
     aviso.textContent = 'Dieta de ejemplo con datos inventados';
+  }
+
+  // --- «Lo importante de tu plan»: una vez por dieta, al abrir la app --------------------------
+  var INICIO = Date.now();
+
+  /**
+   * Pantallas con la nota de su dietista y lo marcado ★. Solo si hay algo que enseñar, una vez
+   * por dieta y al abrir la app (nunca a mitad de uso: si la dieta nueva llega más tarde, sale la
+   * próxima vez que la abra).
+   */
+  function presentar() {
+    if (!j) return;
+    var pantallas = Logica.presentacion(j), k = claveDieta('presentada');
+    if (!pantallas.length || leer('presentada', {}).clave === k || $('presentacion')) return;
+    var carril = el('div', { class: 'pres-carril' }, pantallas.map(function (p) {
+      return el('section', { class: 'pres-pantalla' }, el('h2', null, p.titulo),
+        p.nota ? p.lineas.map(function (l) { return el('p', null, l); }) : el('ul', null, p.lineas.map(function (l) { return el('li', null, l); })));
+    }));
+    var puntos = el('div', { class: 'puntos', 'aria-hidden': 'true' }, pantallas.map(function (p, i) { return el('i', { class: i ? '' : 'on' }); }));
+    var boton = el('button', { type: 'button', class: 'btn principal' }, pantallas.length > 1 ? 'Siguiente' : 'Empezar');
+    var caja = el('div', { class: 'presentacion', id: 'presentacion', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Lo importante de tu plan' },
+      el('div', { class: 'pres-cab' }, el('span', null, 'Lo importante de tu plan'),
+        el('button', { type: 'button', class: 'pres-saltar', onclick: cerrar }, 'Saltar')),
+      carril, el('div', { class: 'pres-pie' }, puntos, boton));
+    function actual() { return Math.round(carril.scrollLeft / carril.clientWidth); }
+    carril.addEventListener('scroll', function () {
+      var k2 = actual();
+      Array.prototype.forEach.call(puntos.children, function (p, i) { p.className = i === k2 ? 'on' : ''; });
+      boton.textContent = k2 >= pantallas.length - 1 ? 'Empezar' : 'Siguiente';
+    }, { passive: true });
+    boton.addEventListener('click', function () {
+      var k2 = actual();
+      if (k2 >= pantallas.length - 1) cerrar();
+      else carril.scrollTo({ left: (k2 + 1) * carril.clientWidth, behavior: 'smooth' });
+    });
+    function cerrar() {
+      guardar('presentada', { clave: k, dia: hoyTexto() });
+      caja.remove();
+      pintar();
+    }
+    document.body.appendChild(caja);
+    boton.focus();
   }
 
   // --- el portal: la dieta llega con el enlace personal -----------------------------------
@@ -338,6 +411,7 @@
           usar(d.usar, 'portal');
           if (nueva) { diaSel = hoyIdx; vista = 'hoy'; }
           pintar();
+          if (nueva && Date.now() - INICIO < 10000) presentar();   // recién abierta: sí; a mitad de uso: la próxima vez
         } else if (d.olvidar) {
           olvidar(d.olvidar);
         } else if (d.aviso && !j) {
@@ -391,18 +465,19 @@
   if (!PINTAR[vista]) vista = 'hoy';
   var guardada = leer(CLAVE, null);
   if (codigo || (leer('acceso', null) && !(guardada && guardada.dieta))) {
-    if (guardada && !Logica.problema(guardada.dieta)) { j = guardada.dieta; arrancar(); pintar(); }
+    if (guardada && !Logica.problema(guardada.dieta)) { j = guardada.dieta; arrancar(); pintar(); presentar(); }
     else bienvenida('', CONFIG.portal ? 'Buscando tu dieta…' : 'La app aún no está conectada con tu dietista.');
     comprobar(false);
   } else if (CONFIG.pruebas && /[?&]ejemplo\b/.test(location.search)) {
     // ?ejemplo → por días · ?ejemplo=opciones → por opciones
     fetch(/[?&]ejemplo=opciones\b/.test(location.search) ? 'ejemplo/dieta-opciones.json' : 'ejemplo/dieta.json', { cache: 'no-store' }).then(function (r) { return r.json(); })
-      .then(function (d) { if (usar(d, 'ejemplo')) pintar(); history.replaceState(null, '', location.pathname + location.hash); })
+      .then(function (d) { if (usar(d, 'ejemplo')) { pintar(); presentar(); } history.replaceState(null, '', location.pathname + location.hash); })
       .catch(function () { bienvenida('No se ha podido cargar la dieta de ejemplo.'); });
   } else if (guardada && !Logica.problema(guardada.dieta)) {
     j = guardada.dieta;
     arrancar();
     pintar();
+    presentar();
     comprobar(false);
   } else {
     bienvenida('');
