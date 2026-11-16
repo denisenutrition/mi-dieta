@@ -64,10 +64,22 @@
     $('aviso').hidden = true;
     $('bienvenida').hidden = false;
     $('pruebas-bienvenida').hidden = !CONFIG.pruebas;
+    // Rescate: si se abre sin código (p. ej. la app instalada en el iPhone desde una dirección
+    // sin él), se puede pegar el enlace aquí. Con código, mientras busca, no hace falta.
+    $('pegar').hidden = !!leer('acceso', null);
     $('bienvenida-texto').textContent = texto || 'Aquí verás tu plan cuando abras el enlace que te ha enviado tu dietista.';
     $('bienvenida-error').hidden = !error;
     $('bienvenida-error').textContent = error || '';
   }
+
+  $('pegar').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var c = Logica.codigoDeEnlace($('pegar-texto').value);
+    if (!c) { bienvenida('Eso no parece el enlace de tu dietista. Cópialo entero desde el mensaje.'); return; }
+    guardar('acceso', { codigo: c, desde: new Date().toISOString() });
+    bienvenida('', 'Buscando tu dieta…');
+    comprobar(false);
+  });
 
   function abrirFichero() { $('fichero').click(); }
   $('fichero').addEventListener('change', function () {
@@ -351,7 +363,7 @@
   });
 
   // --- inicio ---------------------------------------------------------------------
-  var codigo = Logica.codigoDeEnlace(location.hash);
+  var codigo = Logica.codigoDeEnlace(location.search) || Logica.codigoDeEnlace(location.hash);
   if (codigo) {
     // Viene del enlace personal: se guarda el código. Se DEJA en la dirección a propósito: en el
     // iPhone, «Añadir a pantalla de inicio» guarda la dirección que hay en ese momento, y la app
@@ -381,6 +393,6 @@
   }
 
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-    navigator.serviceWorker.register('sw.js').catch(function () {});
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(function () {});
   }
 })();

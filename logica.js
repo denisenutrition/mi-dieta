@@ -144,9 +144,9 @@ var Logica = (function () {
     return j.nutricion.dias[dia] || null;
   }
 
-  /** El código del enlace personal («…/#k=abc…»), o ''. */
-  function codigoDeEnlace(hash) {
-    var m = String(hash || '').match(/[#&]k=([a-fA-F0-9]{32})\b/);
+  /** El código del enlace personal («…/?k=abc…» o el antiguo «…/#k=abc…»), o ''. Vale un enlace pegado entero. */
+  function codigoDeEnlace(texto) {
+    var m = String(texto || '').match(/[?#&]k=([a-fA-F0-9]{32})(?![a-fA-F0-9])/);
     return m ? m[1].toLowerCase() : '';
   }
 
