@@ -98,7 +98,7 @@
   function pintarCabecera() {
     $('hola').textContent = 'Hola, ' + j.clienta.nombre;
     $('chip-dieta').textContent = 'Dieta v' + j.version + ' · desde ' + Logica.fechaCorta(j.desde);
-    var sub = { hoy: 'Tu día, comida a comida. Desliza para ver alternativas.', semana: 'Tu semana de un vistazo.', compra: 'Lo que necesitas para esta semana.', mas: 'Tus recomendaciones y tu plan.' };
+    var sub = { hoy: 'Tu día, comida a comida. Desliza para ver alternativas.', semana: 'Tu semana de un vistazo.', compra: 'Lo que necesitas para esta semana.', mas: 'Tus consejos, tu dieta y tu dietista.' };
     $('subtitulo').textContent = sub[vista];
     var dias = $('dias');
     dias.hidden = vista !== 'hoy';
@@ -127,10 +127,13 @@
     }));
   }
 
+  /** «opcional», discreto, junto al nombre de la comida. */
+  function opcional(c) { return c.opcional ? el('span', { class: 'opc' }, ' · opcional') : null; }
+
   function tarjetaComida(c) {
     if (c.libre) {
       return el('article', { class: 'comida libre' },
-        el('div', { class: 'comida-cab' }, el('span', { class: 'nombre' }, c.nombre + ' libre'), el('span', { class: 'hora' }, c.hora)),
+        el('div', { class: 'comida-cab' }, el('span', { class: 'nombre' }, c.nombre + ' libre', opcional(c)), el('span', { class: 'hora' }, c.hora)),
         el('p', null, 'Elige lo que te apetezca y disfrútalo con calma. El plan ya cuenta con ella.'));
     }
     var ops = c.opciones.map(function (p, k) {
@@ -157,7 +160,7 @@
       }, { passive: true });
     }
     return el('article', { class: 'comida' },
-      el('div', { class: 'comida-cab' }, el('span', { class: 'nombre' }, c.nombre), el('span', { class: 'hora' }, c.hora)),
+      el('div', { class: 'comida-cab' }, el('span', { class: 'nombre' }, c.nombre, opcional(c)), el('span', { class: 'hora' }, c.hora)),
       carril,
       ops.length > 1 ? el('div', { class: 'pie-opciones' }, puntos, pista) : null);
   }
@@ -173,7 +176,7 @@
       el('p', { class: 'nota-cantidades' }, 'Cantidades ' + j.ajustes.cantidades + ', pesadas ' + j.ajustes.pesos + '.',
         el('br'), 'Toca un ingrediente con ⇄ para ver con qué puedes cambiarlo.'),
       el('button', { type: 'button', class: 'ir-mas', onclick: function () { cambiar('mas'); } },
-        'Cómo leer las cantidades y tus recomendaciones: pestaña «Más» (la última) →'));
+        'Cómo leer las cantidades y tus recomendaciones'));
   }
 
   // Deslizar el día entero (fuera de las tarjetas con alternativas).
@@ -202,7 +205,7 @@
         el('h3', null, el('span', null, d.nombre + ' ' + f.getDate() + (i === hoyIdx ? ' · hoy' : '')),
           el('button', { type: 'button', onclick: function () { diaSel = i; cambiar('hoy'); } }, 'Ver día')),
         d.comidas.map(function (c) {
-          return el('div', { class: 'sem-fila' }, el('span', { class: 'm' }, c.nombre),
+          return el('div', { class: 'sem-fila' }, el('span', { class: 'm' }, c.nombre, c.opcional ? el('span', { class: 'opc-sem' }, 'opcional') : null),
             el('span', null, c.plato, c.alternativas ? el('span', { class: 'n-alt' }, c.alternativas + (c.alternativas === 1 ? ' alternativa' : ' alternativas')) : null));
         }));
     })));
@@ -233,7 +236,7 @@
             var cb = el('input', { type: 'checkbox', id: 'c-' + it.id });
             cb.checked = !!hechos[it.id];
             var fila = el('label', { class: 'item' + (cb.checked ? ' hecho' : ''), for: 'c-' + it.id }, cb,
-              el('span', { class: 'txt' }, it.nombre), el('span', { class: 'cant' }, it.cantidad));
+              el('span', { class: 'txt' }, it.nombre, it.opcional ? el('span', { class: 'opc-compra' }, ' · opcional') : null), el('span', { class: 'cant' }, it.cantidad));
             cb.addEventListener('change', function () {
               hechos[it.id] = cb.checked; guardar(kHechos, hechos);
               fila.className = 'item' + (cb.checked ? ' hecho' : '');
@@ -257,9 +260,9 @@
     var recs = Logica.recomendaciones(j);
     var paginas = recs.filter(function (r) { return r.pg; }), otras = recs.filter(function (r) { return !r.pg; });
     var obj = j.nutricion && j.ajustes.mostrarNutricion ? j.nutricion.objetivo : null;
-    poner($('v-mas'),
-      el('div', { class: 'tarjeta' }, el('h3', null, 'Tu dieta'),
-        el('p', null, 'Versión ' + j.version + ', desde el ' + Logica.fechaCorta(j.desde) + '.'),
+    // Orden: (nota de tu dietista e imprescindibles, paso 4) → recomendaciones → tablas → tu dieta → cómo trabajamos.
+    var tuDieta = el('div', { class: 'tarjeta' }, el('h3', null, 'Versión ' + j.version),
+        el('p', null, 'Desde el ' + Logica.fechaCorta(j.desde) + '.'),
         el('div', { class: 'ajustes' },
           el('span', null, 'Cantidades ' + j.ajustes.cantidades),
           el('span', null, 'Pesos ' + j.ajustes.pesos),
@@ -267,12 +270,14 @@
           obj && obj.kcal ? el('span', null, obj.kcal + ' kcal al día') : null),
         leer('acceso', null) && CONFIG.portal ? el('div', { class: 'comprobar' },
           el('span', { id: 'comprobacion' }, textoComprobada()),
-          el('button', { type: 'button', class: 'btn', onclick: function () { comprobar(true); } }, 'Buscar cambios')) : null),
+          el('button', { type: 'button', class: 'btn', onclick: function () { comprobar(true); } }, 'Buscar cambios')) : null);
+    poner($('v-mas'),
       otras.length ? [el('div', { class: 'grupo-mas' }, 'Recomendaciones'), otras.map(function (r, i) { return bloqueRecomendacion(r, i === 0); })] : null,
       (j.tablas || []).length ? [el('div', { class: 'grupo-mas' }, 'Tablas'), j.tablas.map(function (t) {
         return el('details', { class: 'bloque' }, el('summary', null, t.t),
           el('div', { class: 'porciones' }, t.p.map(function (x) { return el('div', null, x[0], x[1] ? el('small', null, x[1]) : null); })));
       })] : null,
+      el('div', { class: 'grupo-mas' }, 'Tu dieta'), tuDieta,
       paginas.length ? [el('div', { class: 'grupo-mas' }, 'Cómo trabajamos'), paginas.map(function (r) { return bloqueRecomendacion(r, false); })] : null,
       CONFIG.pruebas ? el('div', { class: 'pruebas' }, el('button', { type: 'button', 'data-abrir-fichero': true }, 'Cargar otra dieta desde un fichero · para pruebas')) : null);
   }

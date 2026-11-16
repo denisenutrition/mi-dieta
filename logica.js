@@ -77,8 +77,8 @@ var Logica = (function () {
     var d = j.semana[dia] || {};
     return j.comidas.filter(function (c) { return c.d.indexOf(dia) !== -1 && d[c.id]; }).map(function (c) {
       var e = d[c.id];
-      if (e === 'LIBRE') return { id: c.id, nombre: c.n, hora: c.h, libre: true, opciones: [] };
-      return { id: c.id, nombre: c.n, hora: c.h, libre: false, opciones: e.map(function (id) { return plato(j, id); }).filter(Boolean) };
+      if (e === 'LIBRE') return { id: c.id, nombre: c.n, hora: c.h, opcional: !!c.o, libre: true, opciones: [] };
+      return { id: c.id, nombre: c.n, hora: c.h, opcional: !!c.o, libre: false, opciones: e.map(function (id) { return plato(j, id); }).filter(Boolean) };
     });
   }
 
@@ -86,7 +86,7 @@ var Logica = (function () {
   function semana(j) {
     return j.semana.map(function (d, i) {
       return { dia: i, nombre: DIAS[i], comidas: comidasDelDia(j, i).map(function (c) {
-        return { nombre: c.nombre, plato: c.libre ? 'Libre' : (c.opciones[0] || {}).nombre, alternativas: c.libre ? 0 : c.opciones.length - 1 };
+        return { nombre: c.nombre, opcional: c.opcional, plato: c.libre ? 'Libre' : (c.opciones[0] || {}).nombre, alternativas: c.libre ? 0 : c.opciones.length - 1 };
       }) };
     });
   }
@@ -103,8 +103,9 @@ var Logica = (function () {
         var e = d[c.id];
         if (!e || e === 'LIBRE' || c.d.indexOf(dia) === -1 || !j.platos[e[0]]) return;
         j.platos[e[0]].i.forEach(function (x) {
-          var a = por[x[0]] || (por[x[0]] = { id: x[0], veces: 0, sumas: {}, sueltas: false });
+          var a = por[x[0]] || (por[x[0]] = { id: x[0], veces: 0, sumas: {}, sueltas: false, soloOpcional: true });
           a.veces++;
+          if (!c.o) a.soloOpcional = false;
           var n = numero(x[1]), u = texto(x[2]);
           if (u === 'al gusto') return;
           if (n == null) { a.sueltas = true; return; }
@@ -123,7 +124,7 @@ var Logica = (function () {
       });
       var cant = partes.length ? partes.join(' + ') : 'para ' + a.veces + (a.veces === 1 ? ' comida' : ' comidas');
       var s = al.s || 'Otros';
-      (secciones[s] = secciones[s] || []).push({ id: id, nombre: al.n, cantidad: cant });
+      (secciones[s] = secciones[s] || []).push({ id: id, nombre: al.n, cantidad: cant, opcional: a.soloOpcional });
     });
     var orden = SECCIONES.slice();
     Object.keys(secciones).sort().forEach(function (s) { if (orden.indexOf(s) === -1) orden.push(s); });
