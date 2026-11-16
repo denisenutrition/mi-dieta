@@ -347,12 +347,23 @@
     if (c && c.id === citaId) { c.enviada = cuando; guardar('cita', c); }
   }
 
+  /** Tras enviarla: el formulario se cierra y queda claro que no falta nada. */
+  function pintarEnviada(cita, prueba) {
+    function volver() { formulario = false; pintar(); window.scrollTo(0, 0); }
+    poner($('v-mas'), el('div', { class: 'f-hecho' },
+      el('div', { class: 'f-hecho-marca', 'aria-hidden': 'true' }, '✓'),
+      el('h2', { class: 'f-titulo' }, '¡Enviada!'),
+      el('p', null, 'Tu dietista la tendrá delante en tu cita del ' + Logica.fechaLarga(cita.fecha).toLowerCase() + '. No tienes que hacer nada más.' + (prueba ? ' (Prueba: no sale de este móvil.)' : '')),
+      el('button', { type: 'button', class: 'btn principal f-enviar', onclick: volver }, 'Volver a Mi consulta')));
+    window.scrollTo(0, 0);
+  }
+
   function enviarRevision(cita, val, estado, boton) {
     if (!Logica.hayRespuestas(val)) { estado.textContent = 'Rellena al menos una respuesta.'; return; }
     var acceso = leer('acceso', null);
     if (!acceso || !CONFIG.portal) {
       // Dieta de ejemplo (pruebas): no sale del móvil.
-      if (CONFIG.pruebas) { marcarEnviada(cita.id, new Date().toISOString()); estado.textContent = '✓ Enviada (prueba: no sale de este móvil).'; boton.textContent = 'Enviar de nuevo'; }
+      if (CONFIG.pruebas) { marcarEnviada(cita.id, new Date().toISOString()); pintarEnviada(cita, true); }
       return;
     }
     var datos = { k: acceso.codigo, cita: cita.id, respuestas: Logica.respuestasParaEnviar(val) };
@@ -361,8 +372,7 @@
       if (r && r.ok) {
         try { localStorage.removeItem('pendiente-envio'); } catch (e) {}
         marcarEnviada(cita.id, r.enviado);
-        estado.textContent = '✓ Enviada. Tu dietista la tendrá delante en la consulta.';
-        boton.textContent = 'Enviar de nuevo';
+        pintarEnviada(cita);
       } else {
         estado.textContent = ((r && r.mensaje) || 'No se ha podido enviar. Inténtalo dentro de un rato.') + (r && r.detalle ? ' (' + r.detalle + ')' : '');
       }
