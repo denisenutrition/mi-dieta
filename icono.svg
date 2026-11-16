@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#2e7553"/>
+  <!-- Una hoja: el plan de alimentación. Dentro de la zona segura (maskable). -->
+  <path d="M168 344c0-112 72-184 184-184 0 112-72 184-184 184z" fill="#ffffff"/>
+  <path d="M168 344l120-120" stroke="#2e7553" stroke-width="14" stroke-linecap="round"/>
+</svg>
