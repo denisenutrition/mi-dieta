@@ -194,6 +194,25 @@ details.bloque ul { margin: 0; padding: 0 14px 14px 32px; display: grid; gap: 6p
 details.bloque.imp { border-color: var(--accent); }
 details.bloque.imp summary::before { content: "★ "; color: var(--accent); }
 
+/* --- Mi revisión --- */
+.tarjeta.revision { border-color: var(--accent); }
+.tarjeta.revision .grande { font-family: var(--display); font-size: 1.2rem; font-weight: 700; margin: 2px 0 4px; }
+.tarjeta.revision p { color: var(--muted); font-size: .9rem; margin: 0 0 10px; }
+.f-volver { border: 0; background: none; color: var(--accent); font-weight: 600; padding: 4px 0; cursor: pointer; }
+.f-titulo { font-family: var(--display); font-size: 1.4rem; margin: 6px 0 4px; }
+.f-campo { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radio); padding: 12px 14px; margin-bottom: 10px; }
+.f-pregunta { display: block; font-weight: 600; margin-bottom: 8px; }
+.f-ayuda { font-size: .8rem; color: var(--muted); margin: -4px 0 8px; }
+.f-campo input, .f-campo textarea { width: 100%; font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); resize: vertical; }
+.f-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.f-chips button { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 8px 14px; cursor: pointer; font-size: .9rem; }
+.f-chips.escala { display: grid; grid-template-columns: repeat(5, 1fr); }
+.f-chips.escala button { padding: 10px 0; font-weight: 600; }
+.f-chips button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.f-extremos { display: flex; justify-content: space-between; font-size: .75rem; color: var(--muted); margin-top: 4px; }
+.f-enviar { width: 100%; padding: 12px; margin-top: 6px; }
+.f-estado { text-align: center; color: var(--muted); font-size: .9rem; min-height: 1.4em; }
+
 /* --- Punto de «nuevo» en la pestaña --- */
 nav.pestanas button { position: relative; }
 nav.pestanas button.nuevo::after { content: ""; position: absolute; top: 8px; left: calc(50% + 10px); width: 8px; height: 8px; border-radius: 50%; background: #d64545; }

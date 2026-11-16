@@ -203,6 +203,50 @@ var Logica = (function () {
     return out;
   }
 
+  // --- «Mi revisión»: el formulario antes de cada cita ----------------------------------------
+  // Las preguntas (de momento fijas; Denise las revisará). escala: 1-5 con sus extremos.
+  var PREGUNTAS = [
+    { id: 'peso', tipo: 'numero', texto: 'Tu peso (kg)', ayuda: 'Opcional. Mejor en ayunas.' },
+    { id: 'seguido', tipo: 'opciones', texto: '¿Cuánto has seguido el plan?', opciones: ['Casi todo', 'Más o menos la mitad', 'Poco'] },
+    { id: 'energia', tipo: 'escala', texto: 'Energía', extremos: ['Muy poca', 'Mucha'] },
+    { id: 'hambre', tipo: 'escala', texto: 'Hambre entre horas', extremos: ['Nada', 'Mucha'] },
+    { id: 'descanso', tipo: 'escala', texto: 'Descanso', extremos: ['Mal', 'Muy bien'] },
+    { id: 'digestiones', tipo: 'escala', texto: 'Digestiones', extremos: ['Mal', 'Muy bien'] },
+    { id: 'costado', tipo: 'texto', texto: '¿Qué te ha costado más?' },
+    { id: 'funcionado', tipo: 'texto', texto: '¿Qué te ha gustado o te ha funcionado?' },
+    { id: 'preguntas', tipo: 'texto', texto: '¿Algo que quieras cambiar o preguntarme?' }
+  ];
+
+  /** Respuestas del formulario → [[pregunta, respuesta]…] para el portal (las escalas, con su sentido). */
+  function respuestasParaEnviar(valores) {
+    return PREGUNTAS.map(function (p) {
+      var v = valores[p.id] == null ? '' : String(valores[p.id]).trim();
+      if (p.tipo === 'escala' && v) v = v + ' de 5 (1 = ' + p.extremos[0].toLowerCase() + ', 5 = ' + p.extremos[1].toLowerCase() + ')';
+      return [p.texto, v];
+    });
+  }
+
+  function hayRespuestas(valores) {
+    return PREGUNTAS.some(function (p) { return valores[p.id] != null && String(valores[p.id]).trim(); });
+  }
+
+  /** Días que faltan de hoy (Date) a una fecha «AAAA-MM-DD» (0 = hoy, negativo = ya pasó). */
+  function diasHasta(hoy, iso) {
+    var p = String(iso).split('-');
+    return Math.round((Date.UTC(+p[0], p[1] - 1, +p[2]) - Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())) / 86400000);
+  }
+
+  /** «Martes 24 nov» */
+  function fechaLarga(iso) {
+    var p = String(iso).split('-'), d = new Date(+p[0], p[1] - 1, +p[2], 12);
+    return DIAS[(d.getDay() + 6) % 7] + ' ' + Number(p[2]) + ' ' + MESES[Number(p[1]) - 1];
+  }
+
+  /** Avisar (punto rojo) cuando la revisión está abierta, sin enviar, y faltan 3 días o menos. */
+  function avisarRevision(cita, hoy) {
+    return !!(cita && cita.abierta && !cita.enviada && diasHasta(hoy, cita.fecha) <= 3);
+  }
+
   /** Total del día, si Denise ha decidido enseñarlo (mostrarNutricion). */
   function nutricionDelDia(j, dia) {
     if (!j.ajustes || !j.ajustes.mostrarNutricion || !j.nutricion || !j.nutricion.dias) return null;
@@ -238,7 +282,9 @@ var Logica = (function () {
     FORMATO: FORMATO, codigoDeEnlace: codigoDeEnlace, urlPortal: urlPortal, decidir: decidir, DIAS: DIAS, LETRAS: LETRAS, MESES: MESES,
     numero: numero, cantidad: cantidad, problema: problema, lunesDe: lunesDe, diaDeLaSemana: diaDeLaSemana,
     fechaCorta: fechaCorta, porOpciones: porOpciones, imprescindibles: imprescindibles, consejos: consejos,
-    consejoDelDia: consejoDelDia, presentacion: presentacion, comidasDelDia: comidasDelDia, semana: semana, compra: compra,
+    consejoDelDia: consejoDelDia, presentacion: presentacion,
+    PREGUNTAS: PREGUNTAS, respuestasParaEnviar: respuestasParaEnviar, hayRespuestas: hayRespuestas, diasHasta: diasHasta,
+    fechaLarga: fechaLarga, avisarRevision: avisarRevision, comidasDelDia: comidasDelDia, semana: semana, compra: compra,
     recomendaciones: recomendaciones, nutricionDelDia: nutricionDelDia
   };
 })();

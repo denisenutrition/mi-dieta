@@ -16,6 +16,7 @@
   var lunes = Logica.lunesDe(hoy);
   var diaSel = hoyIdx;
   var vista = 'hoy';
+  var formulario = false;   // «Mi revisión» abierta dentro de Mi consulta
 
   // --- utilidades ---------------------------------------------------------------
   function $(id) { return document.getElementById(id); }
@@ -189,6 +190,11 @@
    * ocultar hasta mañana (×). No sale el día en que se ha enseñado «Lo importante de tu plan».
    */
   function tarjetaConsejo() {
+    var cita = leer('cita', null);
+    if (Logica.avisarRevision(cita, new Date())) {
+      return el('div', { class: 'consejo' }, el('button', { type: 'button', class: 'consejo-txt', onclick: function () { formulario = true; cambiar('mas'); } },
+        el('span', { class: 'ico', 'aria-hidden': 'true' }, '📝'), el('span', null, 'Tu revisión es el ' + Logica.fechaLarga(cita.fecha).toLowerCase() + ': cuéntale a tu dietista cómo te ha ido.')));
+    }
     var c = Logica.consejoDelDia(j, new Date());
     if (!c || leer('consejo-oculto', '') === hoyTexto() || leer('presentada', {}).dia === hoyTexto()) return null;
     var t = el('div', { class: 'consejo' },
@@ -277,11 +283,112 @@
     return el('details', { class: 'bloque', open: abierto }, el('summary', null, r.t), el('ul', null, r.l.map(function (t) { return el('li', null, t); })));
   }
 
+  // --- «Mi revisión» ---------------------------------------------------------------------
+
+  /** Arriba en Mi consulta: su próxima cita y el botón para contarle cómo le ha ido. */
+  function tarjetaRevision() {
+    var c = leer('cita', null);
+    if (!c) return null;
+    var dias = Logica.diasHasta(new Date(), c.fecha), linea, boton = null;
+    if (c.enviada) { linea = '✓ Ya le has contado cómo te ha ido. Puedes cambiarlo hasta la cita.'; boton = 'Ver o cambiar'; }
+    else if (c.abierta) { linea = dias <= 0 ? 'Es hoy: cuéntale a tu dietista cómo te ha ido.' : 'Cuéntale a tu dietista cómo te ha ido: son dos minutos.'; boton = 'Rellenar mi revisión'; }
+    else linea = 'Unos días antes podrás contarle aquí cómo te ha ido.';
+    return el('div', { class: 'tarjeta revision' }, el('h3', null, 'Tu próxima revisión'),
+      el('div', { class: 'grande' }, Logica.fechaLarga(c.fecha) + (c.hora ? ' · ' + c.hora : '')),
+      el('p', null, linea),
+      boton ? el('button', { type: 'button', class: 'btn principal', onclick: function () { formulario = true; pintar(); window.scrollTo(0, 0); } }, boton) : null);
+  }
+
+  /** El formulario. Lo que escribe se guarda en el móvil al momento (borrador) hasta que lo envía. */
+  function pintarFormulario() {
+    var cita = leer('cita', null);
+    if (!cita) { formulario = false; return pintarMas(); }
+    var kB = 'borrador-' + cita.id, val = leer(kB, {});
+    function g() { guardar(kB, val); }
+    var campos = Logica.PREGUNTAS.map(function (p) {
+      var control;
+      if (p.tipo === 'numero' || p.tipo === 'texto') {
+        control = p.tipo === 'numero'
+          ? el('input', { id: 'f-' + p.id, type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: 'p. ej. 61,5' })
+          : el('textarea', { id: 'f-' + p.id, rows: 3 });
+        control.value = val[p.id] || '';
+        control.addEventListener('input', function () { val[p.id] = control.value; g(); });
+      } else {
+        var ops = p.tipo === 'escala' ? ['1', '2', '3', '4', '5'] : p.opciones;
+        var chips = el('div', { class: 'f-chips' + (p.tipo === 'escala' ? ' escala' : ''), role: 'group', 'aria-label': p.texto }, ops.map(function (o) {
+          var on = String(val[p.id] || '') === o;
+          return el('button', { type: 'button', class: on ? 'on' : '', 'aria-pressed': String(on), onclick: function () {
+            val[p.id] = String(val[p.id] || '') === o ? '' : o; g();
+            Array.prototype.forEach.call(chips.children, function (b) { var x = b.textContent === String(val[p.id]); b.className = x ? 'on' : ''; b.setAttribute('aria-pressed', String(x)); });
+          } }, o);
+        }));
+        control = p.tipo === 'escala' ? el('div', null, chips, el('div', { class: 'f-extremos' }, el('span', null, '1 · ' + p.extremos[0]), el('span', null, '5 · ' + p.extremos[1]))) : chips;
+      }
+      return el('div', { class: 'f-campo' }, el('label', { class: 'f-pregunta', for: 'f-' + p.id }, p.texto),
+        p.ayuda ? el('div', { class: 'f-ayuda' }, p.ayuda) : null, control);
+    });
+    var estado = el('p', { class: 'f-estado', 'aria-live': 'polite' }, cita.enviada ? 'La enviaste el ' + Logica.fechaCorta(cita.enviada.slice(0, 10)) + '. Si la cambias, envíala de nuevo.' : '');
+    var enviar = el('button', { type: 'button', class: 'btn principal f-enviar' }, cita.enviada ? 'Enviar de nuevo' : 'Enviar a mi dietista');
+    enviar.addEventListener('click', function () { enviarRevision(cita, val, estado, enviar); });
+    poner($('v-mas'),
+      el('button', { type: 'button', class: 'f-volver', onclick: function () { formulario = false; pintar(); window.scrollTo(0, 0); } }, '‹ Volver'),
+      el('h2', { class: 'f-titulo' }, 'Mi revisión'),
+      el('p', { class: 'intro' }, 'Para tu cita del ' + Logica.fechaLarga(cita.fecha).toLowerCase() + '. Contesta lo que quieras: se guarda en tu móvil hasta que lo envías.'),
+      campos, enviar, estado);
+  }
+
+  function mandarRevision(datos) {
+    // Sin cabeceras especiales (texto): así el navegador no pregunta antes al portal.
+    return fetch(CONFIG.portal, { method: 'POST', body: JSON.stringify(datos) }).then(function (r) { return r.json(); });
+  }
+
+  function marcarEnviada(citaId, cuando) {
+    var c = leer('cita', null);
+    if (c && c.id === citaId) { c.enviada = cuando; guardar('cita', c); }
+  }
+
+  function enviarRevision(cita, val, estado, boton) {
+    if (!Logica.hayRespuestas(val)) { estado.textContent = 'Rellena al menos una respuesta.'; return; }
+    var acceso = leer('acceso', null);
+    if (!acceso || !CONFIG.portal) {
+      // Dieta de ejemplo (pruebas): no sale del móvil.
+      if (CONFIG.pruebas) { marcarEnviada(cita.id, new Date().toISOString()); estado.textContent = '✓ Enviada (prueba: no sale de este móvil).'; boton.textContent = 'Enviar de nuevo'; }
+      return;
+    }
+    var datos = { k: acceso.codigo, cita: cita.id, respuestas: Logica.respuestasParaEnviar(val) };
+    boton.disabled = true; estado.textContent = 'Enviando…';
+    mandarRevision(datos).then(function (r) {
+      if (r && r.ok) {
+        try { localStorage.removeItem('pendiente-envio'); } catch (e) {}
+        marcarEnviada(cita.id, r.enviado);
+        estado.textContent = '✓ Enviada. Tu dietista la tendrá delante en la consulta.';
+        boton.textContent = 'Enviar de nuevo';
+      } else {
+        estado.textContent = (r && r.mensaje) || 'No se ha podido enviar. Inténtalo dentro de un rato.';
+      }
+    }).catch(function () {
+      guardar('pendiente-envio', datos);
+      estado.textContent = 'Sin conexión: está guardada y se enviará sola en cuanto tengas internet y abras la app.';
+    }).then(function () { boton.disabled = false; });
+  }
+
+  /** Un envío que se quedó sin conexión: se reintenta al recuperarla o al abrir la app. */
+  function reintentarEnvio() {
+    var p = leer('pendiente-envio', null);
+    if (!p || !CONFIG.portal) return;
+    mandarRevision(p).then(function (r) {
+      if (r && (r.ok || r.codigo === 'cita_no_valida' || r.codigo === 'fuera_de_plazo')) { try { localStorage.removeItem('pendiente-envio'); } catch (e) {} }
+      if (r && r.ok) { marcarEnviada(p.cita, r.enviado); if (j) pintar(); }
+    }).catch(function () {});
+  }
+  window.addEventListener('online', reintentarEnvio);
+
   function bloqueImprescindible(r) {
     return el('details', { class: 'bloque imp', open: true }, el('summary', null, r.t), el('ul', null, r.l.map(function (t) { return el('li', null, t); })));
   }
 
   function pintarMas() {
+    if (formulario) return pintarFormulario();
     var recs = Logica.recomendaciones(j);
     var paginas = recs.filter(function (r) { return r.pg; }), otras = recs.filter(function (r) { return !r.pg && !r.imp; });
     var imps = Logica.imprescindibles(j), tablas = (j.tablas || []).filter(function (t) { return !t.imp; });
@@ -302,6 +409,7 @@
           el('span', { id: 'comprobacion' }, textoComprobada()),
           el('button', { type: 'button', class: 'btn', onclick: function () { comprobar(true); } }, 'Buscar cambios')) : null);
     poner($('v-mas'),
+      tarjetaRevision(),
       j.nota ? el('div', { class: 'tarjeta nota-dt' }, el('h3', null, 'Nota de tu dietista'),
         String(j.nota).split(/\n+/).map(function (l) { return el('p', null, l); })) : null,
       imps.length ? [el('div', { class: 'grupo-mas' }, '★ Imprescindible'), imps.map(function (r) { return r.p ? bloqueTabla(r, true) : bloqueImprescindible(r); })] : null,
@@ -329,11 +437,11 @@
     var kVista = claveDieta('consulta-vista');
     if (vista === 'mas') guardar('consulta-vista', kVista);
     var hayAlgo = !!(j.nota || (j.recomendaciones || []).length || (j.tablas || []).length);
-    document.querySelector('nav.pestanas button[data-v="mas"]').classList.toggle('nuevo', hayAlgo && leer('consulta-vista', '') !== kVista);
+    document.querySelector('nav.pestanas button[data-v="mas"]').classList.toggle('nuevo', (hayAlgo && leer('consulta-vista', '') !== kVista) || Logica.avisarRevision(leer('cita', null), new Date()));
     PINTAR[vista]();
   }
   function cambiar(v) { vista = v; guardar('vista', v); pintar(); window.scrollTo(0, 0); }
-  document.querySelectorAll('nav.pestanas button').forEach(function (b) { b.addEventListener('click', function () { cambiar(b.dataset.v); }); });
+  document.querySelectorAll('nav.pestanas button').forEach(function (b) { b.addEventListener('click', function () { formulario = false; cambiar(b.dataset.v); }); });
   document.addEventListener('keydown', function (e) {
     if (!j || vista !== 'hoy' || Logica.porOpciones(j) || e.target.closest('input')) return;
     if (e.key === 'ArrowRight') { diaSel = (diaSel + 1) % 7; pintar(); }
@@ -358,6 +466,7 @@
    */
   function presentar() {
     if (!j) return;
+    if (soloRevision) return;
     var pantallas = Logica.presentacion(j), k = claveDieta('presentada');
     if (!pantallas.length || leer('presentada', {}).clave === k || $('presentacion')) return;
     var carril = el('div', { class: 'pres-carril' }, pantallas.map(function (p) {
@@ -406,6 +515,7 @@
       .then(function (r) {
         var d = Logica.decidir(r);
         if (r && r.ok) guardar('comprobada', new Date().toISOString());
+        if (r && typeof r === 'object' && 'cita' in r) guardar('cita', r.cita || null);   // su próxima cita (Mi revisión)
         if (d.usar) {
           var nueva = !j || j.version !== d.usar.version;
           usar(d.usar, 'portal');
@@ -429,7 +539,7 @@
 
   /** Enlace revocado (o clienta de baja): la dieta se borra del móvil. */
   function olvidar(mensaje) {
-    try { localStorage.removeItem(CLAVE); localStorage.removeItem('acceso'); localStorage.removeItem('comprobada'); } catch (e) {}
+    try { localStorage.removeItem(CLAVE); localStorage.removeItem('acceso'); localStorage.removeItem('comprobada'); localStorage.removeItem('cita'); localStorage.removeItem('pendiente-envio'); } catch (e) {}
     j = null;
     bienvenida(mensaje);
   }
@@ -462,6 +572,9 @@
     if (!anterior || anterior.codigo !== codigo) guardar('acceso', { codigo: codigo, desde: new Date().toISOString() });
   }
   vista = PINTAR[location.hash.slice(1)] ? location.hash.slice(1) : leer('vista', 'hoy');
+  // Solo pruebas: …#revision abre «Mi revisión» directamente (sin la presentación delante).
+  var soloRevision = CONFIG.pruebas && location.hash === '#revision';
+  if (soloRevision) { vista = 'mas'; formulario = true; }
   if (!PINTAR[vista]) vista = 'hoy';
   var guardada = leer(CLAVE, null);
   if (codigo || (leer('acceso', null) && !(guardada && guardada.dieta))) {
@@ -471,7 +584,11 @@
   } else if (CONFIG.pruebas && /[?&]ejemplo\b/.test(location.search)) {
     // ?ejemplo → por días · ?ejemplo=opciones → por opciones
     fetch(/[?&]ejemplo=opciones\b/.test(location.search) ? 'ejemplo/dieta-opciones.json' : 'ejemplo/dieta.json', { cache: 'no-store' }).then(function (r) { return r.json(); })
-      .then(function (d) { if (usar(d, 'ejemplo')) { pintar(); presentar(); } history.replaceState(null, '', location.pathname + location.hash); })
+      .then(function (d) {
+        // Cita ficticia en 2 días, para ver «Mi revisión» con la dieta de ejemplo (no sale del móvil).
+        if (!leer('cita', null)) { var f = new Date(); f.setDate(f.getDate() + 2); guardar('cita', { id: 'C-PRUEBA', fecha: f.getFullYear() + '-' + ('0' + (f.getMonth() + 1)).slice(-2) + '-' + ('0' + f.getDate()).slice(-2), hora: '10:00', abierta: true, enviada: '' }); }
+        if (usar(d, 'ejemplo')) { pintar(); presentar(); }
+        history.replaceState(null, '', location.pathname + location.hash); })
       .catch(function () { bienvenida('No se ha podido cargar la dieta de ejemplo.'); });
   } else if (guardada && !Logica.problema(guardada.dieta)) {
     j = guardada.dieta;
@@ -482,6 +599,8 @@
   } else {
     bienvenida('');
   }
+
+  reintentarEnvio();
 
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(function () {});
