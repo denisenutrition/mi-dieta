@@ -364,7 +364,7 @@
         estado.textContent = '✓ Enviada. Tu dietista la tendrá delante en la consulta.';
         boton.textContent = 'Enviar de nuevo';
       } else {
-        estado.textContent = (r && r.mensaje) || 'No se ha podido enviar. Inténtalo dentro de un rato.';
+        estado.textContent = ((r && r.mensaje) || 'No se ha podido enviar. Inténtalo dentro de un rato.') + (r && r.detalle ? ' (' + r.detalle + ')' : '');
       }
     }).catch(function () {
       guardar('pendiente-envio', datos);
